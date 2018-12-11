@@ -88,7 +88,7 @@ go func() {
     <-quit
     close(cleanupDone)
 }()
-
+//Main CYCLE
 for {
   select {
     case <-cleanupDone:
@@ -100,7 +100,7 @@ for {
       os.Exit(1)
     case <-tick_sec:
       average_tick:=average_sec.Pushtoqueue(float64(counter))
-      fmt.Printf("Impulses: %d. Average per second(\u00B5Sv per hour): %.3f. Average per minute(\u00B5Sv per hour): %.3f. Average per hour(\u00B5Sv per hour): %.5f.\n", counter, average_tick*.75,average_min.Pushtoqueue(average_tick)*.75,average_hour.Getqueueaverage()*.75)
+      fmt.Printf("Impulses: %d. Average per second(\u00B5Sv per hour): %.3f. Average per minute(\u00B5Sv per hour): %.3f. Average per hour(\u00B5Sv per hour): %.5f.\n",counter , average_tick*.75,average_min.Pushtoqueue(average_tick)*.75,average_hour.Getqueueaverage()*.75)
       counter=0
     case <-tick_min:
       average_hour.Pushtoqueue(average_min.Getqueueaverage())
@@ -108,6 +108,8 @@ for {
        if pin.EdgeDetected() {
           counter++
        }
+//For STS-6 Maximum - 1000 counts per second. So sleep for a while
+       time.Sleep(1 * time.Millisecond)
   }
 
 }
