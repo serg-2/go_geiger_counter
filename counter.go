@@ -1,25 +1,70 @@
 package main
 
-import "github.com/d2r2/go-i2c"
-//Changed in go-i2c writeBytes - turned off logger
-//Changed in go-logger 320 string - turned off logger on Ctrl+C
-//Changed in go-logger 318 string - no lg needed
-//Changed in go-logger 319 string - no Options needed
-//Changed in go-shell 56 - no log needed
 import "fmt"
 import "encoding/hex"
 import "log"
 import "time"
 import "github.com/stianeikeland/go-rpio"
 
-//Make Ctrl +C
+//Make Exit on Ctrl +C
 import "os"
 import "os/signal"
 import "syscall"
 
+const (
+        I2C_SLAVE = 0x0703
+)
+
 type Queue struct {
   size int
   value []float64
+}
+
+// I2Cstruc represents a connection to I2C-device.
+type I2Cstruc struct {
+        addr uint8
+        bus  int
+        rc   *os.File
+}
+
+func ioctl(fd, cmd, arg uintptr) error {
+        _, _, err := syscall.Syscall6(syscall.SYS_IOCTL, fd, cmd, arg, 0, 0, 0)
+        if err != 0 {
+                return err
+        }
+        return nil
+}
+
+// NewI2C opens a connection for I2C-device.
+// SMBus (System Management Bus) protocol over I2C
+// supported as well: you should preliminary specify
+// register address to read from, either write register
+// together with the data in case of write operations.
+func NewI2Cdevice(addr uint8, bus int) (*I2Cstruc, error) {
+        f, err := os.OpenFile(fmt.Sprintf("/dev/i2c-%d", bus), os.O_RDWR, 0600)
+        if err != nil {
+                return nil, err
+        }
+        if err := ioctl(f.Fd(), I2C_SLAVE, uintptr(addr)); err != nil {
+                return nil, err
+        }
+        v := &I2Cstruc{rc: f, bus: bus, addr: addr}
+        return v, nil
+}
+
+// Write sends bytes to the remote I2C-device. The interpretation of
+// the message is implementation-dependant.
+func (v *I2Cstruc) WriteBytes(buf []byte) (int, error) {
+        return v.write(buf)
+}
+
+func (v *I2Cstruc) write(buf []byte) (int, error) {
+        return v.rc.Write(buf)
+}
+
+// Close I2C-connection.
+func (v *I2Cstruc) Close() error {
+        return v.rc.Close()
 }
 
 func (b *Queue) Pushtoqueue(first_element float64) float64 {
@@ -59,7 +104,7 @@ pin.Input()
 pin.PullUp()
 pin.Detect(rpio.FallEdge)
 
-a,_ := i2c.NewI2C(0x19,1)
+a,_ := NewI2Cdevice(0x19,1)
 fmt.Println("Starting")
 
 turnoff,err := hex.DecodeString("00")
